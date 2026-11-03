@@ -85,6 +85,7 @@ const [{data,error},{data:mine,error:mineError}]=await Promise.all([
 if(error){box.textContent="No se pudieron cargar las campañas: "+error.message;return}
 if(mineError){box.textContent="No se pudo consultar tu historial de participación: "+mineError.message;return}
 $("campaignCount").textContent=data.length;
+const notice=document.createElement("p");notice.className="muted";notice.textContent="Registrar interés no significa que hayas completado una tarea ni que exista un pago. La recompensa solo se reconoce cuando el proveedor verifica la actividad.";box.append(notice);
 if(!data.length){box.textContent="Todavía no hay campañas activas verificadas. No hay misiones disponibles para registrar por ahora.";return}
 const submitted=new Map();mine.forEach(x=>{if(!submitted.has(x.campaign_id))submitted.set(x.campaign_id,x)});
 box.innerHTML="";
@@ -100,26 +101,26 @@ data.forEach(c=>{
  const previous=submitted.get(c.id);
  if(previous){
   const status=document.createElement("span");status.className="pill";
-  status.textContent=previous.status==="pending"?"Participación pendiente":previous.status==="confirmed"?"Participación confirmada":"Participación rechazada";
+  status.textContent=previous.status==="pending"?"Interés registrado · sin verificar":previous.status==="confirmed"?"Tarea confirmada por el proveedor":"Participación rechazada";
   actions.append(status);
  }else{
-  const btn=document.createElement("button");btn.type="button";btn.textContent="Participar";btn.onclick=()=>participateInCampaign(c.id,btn);actions.append(btn);
+  const btn=document.createElement("button");btn.type="button";btn.textContent="Registrar interés";btn.onclick=()=>participateInCampaign(c.id,btn);actions.append(btn);
  }
  d.append(info,actions);box.append(d);
 });
 }
 async function participateInCampaign(campaignId,button){
  if(!currentUser)return;
- button.disabled=true;button.textContent="Registrando...";
+ button.disabled=true;button.textContent="Registrando interés...";
  try{
   const {data:existing,error:checkError}=await db.from("cg_task_submissions").select("id,status").eq("user_id",currentUser.id).eq("campaign_id",campaignId).limit(1);
   if(checkError)throw checkError;
   if(existing&&existing.length){button.textContent="Ya registrada";await loadCampaigns();return}
   const {error}=await db.from("cg_task_submissions").insert({user_id:currentUser.id,campaign_id:campaignId,status:"pending",provider_event_id:null});
   if(error)throw error;
-  button.textContent="Registrada";
+  button.textContent="Interés registrado";
   await loadCampaigns();
- }catch(err){button.disabled=false;button.textContent="Participar";alert("No se pudo registrar la participación: "+(err.message||"Error desconocido"))}
+ }catch(err){button.disabled=false;button.textContent="Registrar interés";alert("No se pudo registrar el interés: "+(err.message||"Error desconocido"))}
 }
 async function loadLedger(){const {data,error}=await db.from("cg_reward_ledger").select("asset,amount,entry_type,created_at").eq("user_id",currentUser.id).order("created_at",{ascending:false}).limit(100);if(error){$("ledger").textContent="No se pudo cargar el historial: "+error.message;return}let sums={BTC:0,USDT:0};data.forEach(x=>{sums[x.asset]=(sums[x.asset]||0)+Number(x.amount)});$("btc").textContent=sums.BTC.toFixed(8)+" BTC";$("usdt").textContent=sums.USDT.toFixed(4)+" USDT";if(!data.length){$("ledger").textContent="Aún no hay recompensas confirmadas.";return}$("ledger").innerHTML="";data.forEach(x=>{const d=document.createElement("div");d.className="item";const left=document.createElement("span");left.textContent=x.entry_type.replaceAll("_"," ")+" · "+new Date(x.created_at).toLocaleString("es");const right=document.createElement("strong");right.textContent=(Number(x.amount)>0?"+":"")+x.amount+" "+x.asset;d.append(left,right);$("ledger").append(d)})}
 $("walletForm").addEventListener("submit",async e=>{e.preventDefault();const asset=$("walletAsset").value,network=$("walletNetwork").value,address=$("walletAddress").value.trim();if((asset==="BTC"&&network!=="BTC")||(asset==="USDT"&&network==="BTC")){alert("La red seleccionada no corresponde al activo. BTC debe usar Bitcoin; USDT debe usar TRC20 o ERC20.");return}const {error}=await db.from("cg_wallet_addresses").insert({user_id:currentUser.id,asset,network,address});if(error){alert("No se pudo guardar: "+error.message);return}$("walletAddress").value="";await loadWallets()});
