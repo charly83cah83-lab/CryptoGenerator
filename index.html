@@ -76,7 +76,51 @@ await startApp(r.data.user);
 $("resetBtn").onclick=async()=>{const email=$("email").value.trim();if(!email){msg("Escribe primero tu correo electrónico.");return}const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});msg(error?error.message:"Si el correo está registrado, recibirás instrucciones para restablecer la contraseña.")};
 $("logoutBtn").onclick=async()=>{await db.auth.signOut();location.reload()};
 async function startApp(user){currentUser=user;$("auth").style.display="none";$("app").style.display="block";$("logoutBtn").style.display="inline-block";$("userLabel").textContent=user.email||"Cuenta";await Promise.all([loadCampaigns(),loadLedger(),loadWallets()])}
-async function loadCampaigns(){const box=$("campaigns");const {data,error}=await db.from("cg_campaigns").select("id,title,description,provider,reward_asset,reward_amount,terms").eq("status","active").order("created_at",{ascending:false});if(error){box.textContent="No se pudieron cargar las campañas: "+error.message;return}$("campaignCount").textContent=data.length;if(!data.length){box.textContent="Todavía no hay campañas activas verificadas. Volveremos a mostrar aquí las que se publiquen.";return}box.innerHTML="";data.forEach(c=>{const d=document.createElement("div");d.className="item";const info=document.createElement("div");const title=document.createElement("strong");title.textContent=c.title;const desc=document.createElement("p");desc.className="muted";desc.textContent=(c.description||"")+(c.terms?" · "+c.terms:"");info.append(title,desc);const reward=document.createElement("span");reward.className="pill";reward.textContent=Number(c.reward_amount)+" "+c.reward_asset;d.append(info,reward);box.append(d)})}
+async function loadCampaigns(){
+const box=$("campaigns");
+const [{data,error},{data:mine,error:mineError}]=await Promise.all([
+ db.from("cg_campaigns").select("id,title,description,provider,reward_asset,reward_amount,terms").eq("status","active").order("created_at",{ascending:false}),
+ db.from("cg_task_submissions").select("campaign_id,status,submitted_at").eq("user_id",currentUser.id).order("submitted_at",{ascending:false})
+]);
+if(error){box.textContent="No se pudieron cargar las campañas: "+error.message;return}
+if(mineError){box.textContent="No se pudo consultar tu historial de participación: "+mineError.message;return}
+$("campaignCount").textContent=data.length;
+if(!data.length){box.textContent="Todavía no hay campañas activas verificadas. No hay misiones disponibles para registrar por ahora.";return}
+const submitted=new Map();mine.forEach(x=>{if(!submitted.has(x.campaign_id))submitted.set(x.campaign_id,x)});
+box.innerHTML="";
+data.forEach(c=>{
+ const d=document.createElement("div");d.className="item";
+ const info=document.createElement("div");
+ const title=document.createElement("strong");title.textContent=c.title;
+ const desc=document.createElement("p");desc.className="muted";desc.textContent=(c.description||"")+(c.terms?" · "+c.terms:"");
+ info.append(title,desc);
+ const actions=document.createElement("div");actions.className="row";actions.style.minWidth="160px";
+ const reward=document.createElement("span");reward.className="pill";reward.textContent=Number(c.reward_amount)+" "+c.reward_asset;
+ actions.append(reward);
+ const previous=submitted.get(c.id);
+ if(previous){
+  const status=document.createElement("span");status.className="pill";
+  status.textContent=previous.status==="pending"?"Participación pendiente":previous.status==="confirmed"?"Participación confirmada":"Participación rechazada";
+  actions.append(status);
+ }else{
+  const btn=document.createElement("button");btn.type="button";btn.textContent="Participar";btn.onclick=()=>participateInCampaign(c.id,btn);actions.append(btn);
+ }
+ d.append(info,actions);box.append(d);
+});
+}
+async function participateInCampaign(campaignId,button){
+ if(!currentUser)return;
+ button.disabled=true;button.textContent="Registrando...";
+ try{
+  const {data:existing,error:checkError}=await db.from("cg_task_submissions").select("id,status").eq("user_id",currentUser.id).eq("campaign_id",campaignId).limit(1);
+  if(checkError)throw checkError;
+  if(existing&&existing.length){button.textContent="Ya registrada";await loadCampaigns();return}
+  const {error}=await db.from("cg_task_submissions").insert({user_id:currentUser.id,campaign_id:campaignId,status:"pending",provider_event_id:null});
+  if(error)throw error;
+  button.textContent="Registrada";
+  await loadCampaigns();
+ }catch(err){button.disabled=false;button.textContent="Participar";alert("No se pudo registrar la participación: "+(err.message||"Error desconocido"))}
+}
 async function loadLedger(){const {data,error}=await db.from("cg_reward_ledger").select("asset,amount,entry_type,created_at").eq("user_id",currentUser.id).order("created_at",{ascending:false}).limit(100);if(error){$("ledger").textContent="No se pudo cargar el historial: "+error.message;return}let sums={BTC:0,USDT:0};data.forEach(x=>{sums[x.asset]=(sums[x.asset]||0)+Number(x.amount)});$("btc").textContent=sums.BTC.toFixed(8)+" BTC";$("usdt").textContent=sums.USDT.toFixed(4)+" USDT";if(!data.length){$("ledger").textContent="Aún no hay recompensas confirmadas.";return}$("ledger").innerHTML="";data.forEach(x=>{const d=document.createElement("div");d.className="item";const left=document.createElement("span");left.textContent=x.entry_type.replaceAll("_"," ")+" · "+new Date(x.created_at).toLocaleString("es");const right=document.createElement("strong");right.textContent=(Number(x.amount)>0?"+":"")+x.amount+" "+x.asset;d.append(left,right);$("ledger").append(d)})}
 $("walletForm").addEventListener("submit",async e=>{e.preventDefault();const asset=$("walletAsset").value,network=$("walletNetwork").value,address=$("walletAddress").value.trim();if((asset==="BTC"&&network!=="BTC")||(asset==="USDT"&&network==="BTC")){alert("La red seleccionada no corresponde al activo. BTC debe usar Bitcoin; USDT debe usar TRC20 o ERC20.");return}const {error}=await db.from("cg_wallet_addresses").insert({user_id:currentUser.id,asset,network,address});if(error){alert("No se pudo guardar: "+error.message);return}$("walletAddress").value="";await loadWallets()});
 async function loadWallets(){const {data,error}=await db.from("cg_wallet_addresses").select("asset,network,address,created_at").eq("user_id",currentUser.id).order("created_at",{ascending:false});if(error){$("wallets").textContent=error.message;return}$("wallets").innerHTML="";data.forEach(w=>{const d=document.createElement("div");d.className="item";const s=document.createElement("span");s.textContent=w.asset+" · "+w.network+" · "+w.address;d.append(s);$("wallets").append(d)})}
