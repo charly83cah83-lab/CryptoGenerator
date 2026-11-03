@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#090d1f"><title>CryptoGenerator</title>
+<style>
+:root{color-scheme:dark;--bg:#090d1f;--panel:#111a32;--line:#263454;--txt:#edf3ff;--muted:#9aabc9;--cyan:#48e1d2;--violet:#9b7cff;--green:#72e6a4}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 85% 0,#20275a 0,transparent 35%),var(--bg);color:var(--txt);font:15px system-ui,Arial,sans-serif;min-height:100vh}
+header{padding:20px max(18px,calc((100% - 1100px)/2));border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{font-size:20px;font-weight:850;letter-spacing:.4px}.brand span{color:var(--cyan)}.tag{color:var(--muted);font-size:12px}
+main{max-width:1100px;margin:26px auto;padding:0 16px}.card{background:linear-gradient(145deg,rgba(22,33,62,.96),rgba(14,22,43,.96));border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 15px 45px #0003}
+h1{font-size:clamp(25px,5vw,38px);margin:0 0 8px}h2{font-size:19px;margin:0 0 14px}.muted{color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:18px 0}
+.stat{padding:17px;border:1px solid var(--line);border-radius:15px;background:#0b1429}.stat strong{display:block;font-size:24px;margin-top:7px}.asset{color:var(--cyan);font-size:12px;font-weight:700}
+button,input,select{font:inherit}button{border:0;border-radius:11px;padding:12px 16px;font-weight:750;color:#071521;background:linear-gradient(100deg,var(--cyan),#85f0c6);cursor:pointer}
+button.secondary{background:#202d4c;color:var(--txt);border:1px solid var(--line)}button:disabled{opacity:.5;cursor:not-allowed}
+input,select{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:#091329;color:var(--txt);margin:7px 0 12px}
+label{font-size:13px;color:var(--muted)}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.row>*{flex:1}
+.auth{max-width:470px;margin:38px auto}.tabs{display:flex;gap:8px;margin:15px 0}.tabs button{flex:1}
+section{margin:18px 0}.item{padding:14px 0;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:center}
+.pill{font-size:11px;border:1px solid var(--line);padding:5px 9px;border-radius:30px;color:var(--muted)}
+.notice{padding:12px;border-radius:10px;background:#1a2846;color:#c8d8fa;margin:12px 0;font-size:13px}
+#app{display:none}.top-actions{display:flex;gap:8px;align-items:center}
+footer{text-align:center;padding:28px;color:var(--muted);font-size:12px}
+@media(max-width:650px){.grid{grid-template-columns:1fr}.item{align-items:flex-start;flex-direction:column}header{padding:16px}.top-actions{flex-direction:column;align-items:flex-end}}
+</style>
+</head>
+<body>
+<header><div><div class="brand">CRYPTO<span>GENERATOR</span></div><div class="tag">Recompensas verificadas · BTC / USDT</div></div><div class="top-actions"><span id="userLabel" class="tag"></span><button id="logoutBtn" class="secondary" style="display:none">Salir</button></div></header>
+<main>
+<div id="auth" class="card auth">
+<h1>Empieza con seguridad</h1><p class="muted">Crea tu cuenta o entra para consultar campañas y recompensas confirmadas.</p>
+<div class="tabs"><button id="loginTab">Iniciar sesión</button><button id="signupTab" class="secondary">Crear cuenta</button></div>
+<form id="authForm"><label>Correo electrónico</label><input id="email" type="email" required autocomplete="email" placeholder="tu@email.com"><label>Contraseña</label><input id="password" type="password" required minlength="8" autocomplete="current-password" placeholder="Mínimo 8 caracteres"><button id="authSubmit" type="submit" style="width:100%">Entrar</button></form>
+<p><button id="resetBtn" class="secondary" style="width:100%">Recuperar contraseña</button></p><div id="authMsg" class="notice" role="status">No necesitas depositar dinero para registrarte.</div>
+</div>
+<div id="app">
+<div class="card"><h1>Tu panel de recompensas</h1><p class="muted">Solo se muestran créditos confirmados en el registro contable. Las recompensas no están garantizadas.</p>
+<div class="grid"><div class="stat"><span class="asset">BITCOIN</span><strong id="btc">0 BTC</strong><span class="muted">Saldo confirmado</span></div><div class="stat"><span class="asset">TETHER</span><strong id="usdt">0 USDT</strong><span class="muted">Saldo confirmado</span></div><div class="stat"><span class="asset">CAMPAÑAS</span><strong id="campaignCount">0</strong><span class="muted">Disponibles ahora</span></div></div>
+<div class="notice">Nunca compartas tu frase semilla ni claves privadas. CryptoGenerator no solicita depósitos para liberar recompensas.</div></div>
+<section class="card"><h2>Campañas disponibles</h2><div id="campaigns" class="muted">Cargando campañas...</div></section>
+<section class="card"><h2>Mis direcciones de cobro</h2><p class="muted">Guarda únicamente direcciones públicas. No introduzcas claves privadas.</p>
+<form id="walletForm"><div class="row"><div><label>Activo</label><select id="walletAsset"><option>USDT</option><option>BTC</option></select></div><div><label>Red</label><select id="walletNetwork"><option value="TRC20">TRON (TRC20)</option><option value="BTC">Bitcoin</option><option value="ERC20">Ethereum (ERC20)</option></select></div></div><label>Dirección pública</label><input id="walletAddress" required minlength="10" maxlength="200" placeholder="Pega aquí tu dirección pública"><button type="submit">Guardar dirección</button></form><div id="wallets"></div></section>
+<section class="card"><h2>Historial de recompensas</h2><div id="ledger" class="muted">Cargando historial...</div></section>
+<section class="card"><h2>Retiros</h2><p class="muted">Los retiros todavía no están habilitados: primero deben integrarse y probarse un proveedor de pagos, sus verificaciones y el proceso antifraude. No se enviarán fondos desde esta pantalla.</p><span class="pill">Función en preparación</span></section>
+</div>
+</main><footer>CryptoGenerator · Sin saldos ficticios · Sin pagos simulados</footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL="https://goaaiupurdrrhagpvush.supabase.co";
+const SUPABASE_ANON_KEY="sb_publishable_Tl_WPT5IOfqY9yv_UsO9Tw_FRldKpob";
+const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+let mode="login", currentUser=null;
+const $=id=>document.getElementById(id);
+function msg(s){$("authMsg").textContent=s}
+$("loginTab").onclick=()=>{mode="login";$("authSubmit").textContent="Entrar";$("loginTab").className="";$("signupTab").className="secondary";$("password").autocomplete="current-password"};
+$("signupTab").onclick=()=>{mode="signup";$("authSubmit").textContent="Crear cuenta";$("signupTab").className="";$("loginTab").className="secondary";$("password").autocomplete="new-password"};
+$("authForm").addEventListener("submit",async e=>{e.preventDefault();$("authSubmit").disabled=true;msg("Conectando de forma segura...");
+try{const email=$("email").value.trim(),password=$("password").value;let r;
+if(mode==="signup")r=await db.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname}});
+else r=await db.auth.signInWithPassword({email,password});
+if(r.error)throw r.error;
+if(mode==="signup"&&!r.data.session){msg("Cuenta creada. Revisa tu correo y confirma el registro antes de iniciar sesión.");return}
+await startApp(r.data.user);
+}catch(err){msg(err.message||"No se pudo completar la operación.")}finally{$("authSubmit").disabled=false}});
+$("resetBtn").onclick=async()=>{const email=$("email").value.trim();if(!email){msg("Escribe primero tu correo electrónico.");return}const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});msg(error?error.message:"Si el correo está registrado, recibirás instrucciones para restablecer la contraseña.")};
+$("logoutBtn").onclick=async()=>{await db.auth.signOut();location.reload()};
+async function startApp(user){currentUser=user;$("auth").style.display="none";$("app").style.display="block";$("logoutBtn").style.display="inline-block";$("userLabel").textContent=user.email||"Cuenta";await Promise.all([loadCampaigns(),loadLedger(),loadWallets()])}
+async function loadCampaigns(){const box=$("campaigns");const {data,error}=await db.from("cg_campaigns").select("id,title,description,provider,reward_asset,reward_amount,terms").eq("status","active").order("created_at",{ascending:false});if(error){box.textContent="No se pudieron cargar las campañas: "+error.message;return}$("campaignCount").textContent=data.length;if(!data.length){box.textContent="Todavía no hay campañas activas verificadas. Volveremos a mostrar aquí las que se publiquen.";return}box.innerHTML="";data.forEach(c=>{const d=document.createElement("div");d.className="item";const info=document.createElement("div");const title=document.createElement("strong");title.textContent=c.title;const desc=document.createElement("p");desc.className="muted";desc.textContent=(c.description||"")+(c.terms?" · "+c.terms:"");info.append(title,desc);const reward=document.createElement("span");reward.className="pill";reward.textContent=Number(c.reward_amount)+" "+c.reward_asset;d.append(info,reward);box.append(d)})}
+async function loadLedger(){const {data,error}=await db.from("cg_reward_ledger").select("asset,amount,entry_type,created_at").order("created_at",{ascending:false}).limit(100);if(error){$("ledger").textContent="No se pudo cargar el historial: "+error.message;return}let sums={BTC:0,USDT:0};data.forEach(x=>{sums[x.asset]=(sums[x.asset]||0)+Number(x.amount)});$("btc").textContent=sums.BTC.toFixed(8)+" BTC";$("usdt").textContent=sums.USDT.toFixed(4)+" USDT";if(!data.length){$("ledger").textContent="Aún no hay recompensas confirmadas.";return}$("ledger").innerHTML="";data.forEach(x=>{const d=document.createElement("div");d.className="item";const left=document.createElement("span");left.textContent=x.entry_type.replaceAll("_"," ")+" · "+new Date(x.created_at).toLocaleString("es");const right=document.createElement("strong");right.textContent=(Number(x.amount)>0?"+":"")+x.amount+" "+x.asset;d.append(left,right);$("ledger").append(d)})}
+$("walletForm").addEventListener("submit",async e=>{e.preventDefault();const asset=$("walletAsset").value,network=$("walletNetwork").value,address=$("walletAddress").value.trim();const {error}=await db.from("cg_wallet_addresses").insert({user_id:currentUser.id,asset,network,address});if(error){alert("No se pudo guardar: "+error.message);return}$("walletAddress").value="";await loadWallets()});
+async function loadWallets(){const {data,error}=await db.from("cg_wallet_addresses").select("asset,network,address,created_at").order("created_at",{ascending:false});if(error){$("wallets").textContent=error.message;return}$("wallets").innerHTML="";data.forEach(w=>{const d=document.createElement("div");d.className="item";const s=document.createElement("span");s.textContent=w.asset+" · "+w.network+" · "+w.address;d.append(s);$("wallets").append(d)})}
+db.auth.getSession().then(({data})=>{if(data.session)startApp(data.session.user)});
+db.auth.onAuthStateChange((event,session)=>{if(event==="SIGNED_IN"&&session&&!currentUser)startApp(session.user)});
+</script></body></html>
